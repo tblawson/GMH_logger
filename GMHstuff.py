@@ -138,13 +138,13 @@ class GMH_Sensor():
         meas is one of: 'T', 'P', 'RH', 'T_dew', 't_wb', 'H_atm' or 'H_abs'.
         """
         if len(self.info) == 0:
-            print 'Measure(): No measurements available! - Check sensor is connected and ON.'
-            return (0, 'NO_UNIT')
+            print('Measure(): No measurements available! - Check sensor is connected and ON.')
+            return 0, 'NO_UNIT'
         if self.meas_alias[meas] not in self.info.keys():
-            print 'Function', meas, 'not available!'
-            return (0, 'NO_UNIT')
+            print('Function', meas, 'not available!')
+            return 0, 'NO_UNIT'
         else:
             Address = self.info[self.meas_alias[meas]][0]
             Addr = ct.c_short(Address)
             self.Transmit(Addr, self.c_ValFn)
-            return (self.c_flData.value, self.info[self.meas_alias[meas]][1])
+            return self.c_flData.value, self.info[self.meas_alias[meas]][1]
