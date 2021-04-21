@@ -15,6 +15,7 @@ Ensure GMH_PATH environment variable is set to wherever you keep GMH3x32E.dll.
     I:/MSL/Private/Electricity/Ongoing/OHM/Temperature_PRTs/GMHdll).
 """
 GMHpath = os.getenv('GMH_PATH')
+GMHpath = 'G:\Shared drives\MSL - Electricity\Ongoing\OHM\Temperature_PRTs\GMHdll'
 GMHLIB = ct.windll.LoadLibrary(os.path.join(GMHpath, 'GMH3x32E'))
 
 # A (useful) subset of Transmit() function calls:
@@ -66,6 +67,8 @@ class GMHSensor:
 
         self._info = {}  # Don't access directly - use get functions
 
+        self.verbose = True  # print every msg by default
+
     @staticmethod
     def rtncode_to_errmsg(rtn_code):
         """
@@ -111,8 +114,8 @@ class GMHSensor:
             print('open_port()_except:', msg, '{} "{}"'.format(self.error_code, self.error_msg))
             self.com_open = False
             return -1
-        else:
-            self.error_code = c_rtn_code.value
+        else:  # Runs if no exception.
+            # self.error_code = c_rtn_code.value
             self.com_open = True
             # print('open_port(): calling get_sensor_info()...')
             self.get_sensor_info()
@@ -195,12 +198,14 @@ class GMHSensor:
         """
         # Get number of measurement channels for this instrument -> self.c_intData:
         self.error_code = self.transmit(1, 'GetChannelCount')
+        self.error_msg = self.rtncode_to_errmsg(self.error_code)
         if self.error_code < 0:
             self.chan_count = 0
-            print('No channels found!: {}'.format(self.rtncode_to_errmsg(self.error_code)))
+            print(f'\nCOM{self.port}: No channels found! ({self.error_msg})')
         else:
             self.chan_count = self.c_intData.value
-            print('{} channels found: {}'.format(self.chan_count, self.rtncode_to_errmsg(self.error_code)))
+            if self.verbose:
+                print(f'\nCOM{self.port}: {self.chan_count} channels found ({self.error_msg})')
         return self.chan_count
 
     def get_status(self, chan):
@@ -357,10 +362,10 @@ class GMHSensor:
     def get_sensor_info(self):
         """
         Interrogates GMH sensor for measurement capabilities.
-        Checks if self.info is already populated. If so, returns self.info.
+        Checks if self._info is already populated. If so, returns self.info.
         Otherwise, proceeds to gather required info...
         :returns
-        self.info - a dictionary keyed by measurement string (eg: 'Temperature').
+        self._info - a dictionary keyed by measurement string (eg: 'Temperature').
         Values are tuples: (<address>, <measurement unit>),
         where <address> is an int and <measurement unit> is a unicode string.
         """
@@ -369,7 +374,8 @@ class GMHSensor:
         units = []  # E.g. 'deg C', 'hPascal', ...
 
         if len(self._info) > 0:  # Device info already determined.
-            print('\nget_sensor_info(): device info already determined.')
+            if self.verbose:
+                print('\nget_sensor_info(): device info already determined.')
             return self._info
         else:
             # Find all channel-independent parameters
@@ -378,13 +384,14 @@ class GMHSensor:
                 return {'NO SENSOR': (0, 'NO UNIT')}
             else:
                 # Visit all the channels and note their capabilities:
-                channel = 0
+                channel = 1  # Channel count starts at 1.
                 while channel <= self.chan_count:
-                    print('get_sensor_info(): Testing channel {}...'.format(channel))
+                    if self.verbose:
+                        print(f'\nget_sensor_info(): Testing channel {channel}...')
                     # Try reading a value, Write result to self.c_intData:
                     self.error_code = self.transmit(channel, 'GetValue')
                     if self.error_code < 0:
-                        print('get_sensor_info(): No measurement function at channel {}'.format(channel))
+                        print(f'\nget_sensor_info(): No measurement function at channel {channel}')
                         channel += 1
                         continue  # Skip to next channel if this one has no value to read
                     else:  # Successfully got a dummy value
@@ -456,6 +463,7 @@ class GMHSensor:
             else:
                 chan = self._info[MEAS_ALIAS[meas]][0]
                 meas = (self.c_flData.value, self._info[MEAS_ALIAS[meas]][1])
-                print('Measured {} from port {}, chan: {}.'.format(meas, self.port, chan))
+                if self.verbose:
+                    print('Measured {} from port {}, chan: {}.'.format(meas, self.port, chan))
         self.close()
         return meas

@@ -12,18 +12,21 @@ import time
 import GMHstuff as Gmh
 
 
-PORT_LIST = [(10, 'GMH1I'), (11, 'GMH468'), (13, 'GMH628')]
+PORT_LIST = [(6, 'GMH529'), (7, 'GMH530')]
 
-header = ['Timestamp\t']
+header = ['Timestamp          ']  # 19 char width
 for p in PORT_LIST:
     # Open temporarily to print sensor info:
-    probe = Gmh.GMH_Sensor(p[0], demo=False)
-    print('\n', p[1], 'Sensor info:')
-    param = probe.info.keys()[0]
-    print('Parameter:\t', param, '( address', probe.info[param][0], ')')
-    print('unit:\t', probe.info[param][1], '\n')
-    header.append(p[1])
-    probe.Close()
+    probe = Gmh.GMHSensor(p[0], demo=False)
+    probe.open_port()
+    print(probe.error_msg)
+    print(f'\n____{p[1]} Sensor info:____')
+    for param in probe.get_sensor_info().keys():
+        #param = probe.get_sensor_info().keys()[0]
+        print('Parameter:\t', param, '( address', probe.get_sensor_info()[param][0], ')')
+        print('unit:\t', probe.get_sensor_info()[param][1], '\n')
+        header.append(p[1])
+    probe.close()
 
 filename = input('Filename? >> ')
 com = input('Run comment >> ') + '\n'
@@ -45,11 +48,12 @@ with open(filename + ".txt", "w") as outfile:
 
         for p in PORT_LIST:
             # 'Open-read-close' for each sensor:
-            probe = Gmh.GMH_Sensor(p[0], demo=False)
-            reading = probe.Measure('T')
+            probe = Gmh.GMHSensor(p[0], demo=False)
+            probe.verbose = False  # Suppress all but error msg's.
+            reading = probe.measure('T')  # measure() calls open_port() 1st!
             T = str(reading[0]) + reading[1]
             output.append(T)
-            probe.Close()
+            probe.close()
 
         line = '\t'.join(output)
         outfile.write(line + '\n')
